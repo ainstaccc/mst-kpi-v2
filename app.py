@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import zipfile
 
-FILE_URL = "https://raw.githubusercontent.com/ainstaccc/kpi-checker/main/2025.06_MST-PA.xlsx"
+FILE_URL = "https://raw.githubusercontent.com/ainstaccc/mst-kpi-v2/main/v2-2025.06_MST-PA.xlsx"
 
 @st.cache_data(ttl=3600)
 def load_data():
