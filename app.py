@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 from io import BytesIO
 import zipfile
 
@@ -82,8 +83,44 @@ def main():
 
         # 插入圖片顯示（考核等級分布）
         st.markdown("### 🧭 2025.06 考核等級分布")
-        st.image("https://raw.githubusercontent.com/ainstaccc/kpi-checker/main/2025.06_grade.jpg", use_column_width=True)
         
+        labels = ["A+", "A", "B", "C", "D", "E", "已離職", "新人未足月"]
+        colors = ["#cce5ff", "#99ccff", "#66b3ff", "#3399ff", "#ff9999", "#ff6666", "#cccccc", "#eeeeee"]
+        
+        groups = [
+            {
+                "title": "全門市人員（216人）",
+                "data": [15, 48, 43, 49, 33, 14, 14, 12],
+                "note": "管理未達25人：16\n需訪談：38人\n重點關注：14人"
+            },
+            {
+                "title": "副店／店長（60人）",
+                "data": [15, 12, 10, 16, 6, 1, 1, 0],
+                "note": "管理未達25人：2\n需訪談：3人\n重點關注：1人"
+            },
+            {
+                "title": "儲備／店員（156人）",
+                "data": [0, 36, 33, 36, 27, 13, 13, 10],
+                "note": "管理未達25人：14\n需訪談：31人\n重點關注：13人"
+            }
+        ]
+        
+        cols = st.columns(3)
+        for col, group in zip(cols, groups):
+            fig, ax = plt.subplots(figsize=(4, 4))
+            wedges, texts, autotexts = ax.pie(
+                group["data"],
+                labels=labels,
+                colors=colors,
+                autopct="%1.0f%%",
+                startangle=90,
+                textprops={'fontsize': 8}
+            )
+            ax.set_title(group["title"], fontsize=12)
+            ax.axis("equal")
+            col.pyplot(fig)
+            col.markdown(f"<small>{group['note'].replace(chr(10), '<br>')}</small>", unsafe_allow_html=True)
+
 
         
         st.markdown("## 🧾 門店考核總表")
