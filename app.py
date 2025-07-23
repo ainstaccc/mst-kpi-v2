@@ -63,7 +63,7 @@ if "user_email" not in st.session_state:
             st.stop()
     else:
         login_url = get_login_url()
-        st.markdown(f"[點我登入 Google ✨]({login_url})")
+        st.markdown(f"[請登入 Google帳號，驗證後開始查詢考核成績✨]({login_url})")
         st.stop()
 else:
     st.write(f"✅ 你已登入：**{st.session_state.user_email}**")
