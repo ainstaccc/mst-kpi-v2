@@ -75,20 +75,21 @@ FILE_URL = "https://raw.githubusercontent.com/ainstaccc/mst-kpi-v2/main/v2-2025.
 @st.cache_data(ttl=3600)
 def load_data():
     def parse_sheet(sheet_name, default_header=1):
+    for hdr in [default_header, 2]:
         try:
-            df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=default_header, engine="openpyxl")
-            # 如果標題欄有 Unnamed 開頭，表示 header 有誤，改用 header=2 嘗試
-            if any(str(col).startswith("Unnamed") for col in df.columns):
-                df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=2, engine="openpyxl")
+            df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=hdr, engine="openpyxl")
+            if "區主管" in df.columns:
+                return df  # 成功找到區主管欄，視為正確 header
         except Exception as e:
-            print(f"讀取 {sheet_name} 發生錯誤：{e}")
-            df = pd.DataFrame()
-        return df
+            print(f"讀取 {sheet_name} 發生錯誤（header={hdr}）：{e}")
+    # 如果都失敗，就回傳空表
+    return pd.DataFrame()
+
 
     df_summary = parse_sheet("門店 考核總表", default_header=1)
     df_eff     = parse_sheet("人效分析", default_header=1)
-    df_mgr     = parse_sheet("店長副店 考核明細", default_header=1)
-    df_staff   = parse_sheet("店員儲備 考核明細", default_header=1)
+    df_mgr     = parse_sheet("店長副店 考核明細", default_header=2)  # ✅ 預設直接抓 header=2
+    df_staff   = parse_sheet("店員儲備 考核明細", default_header=2)  # ✅ 預設直接抓 header=2
     df_dist    = pd.read_excel(FILE_URL, sheet_name="等級分布", header=None, nrows=15, usecols="A:N", engine="openpyxl")
     summary_month = pd.read_excel(FILE_URL, sheet_name="門店 考核總表", nrows=1, engine="openpyxl").columns[0]
 
