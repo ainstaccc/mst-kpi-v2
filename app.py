@@ -75,15 +75,15 @@ FILE_URL = "https://raw.githubusercontent.com/ainstaccc/mst-kpi-v2/main/v2-2025.
 @st.cache_data(ttl=3600)
 def load_data():
     def parse_sheet(sheet_name, default_header=1):
-    for hdr in [default_header, 2]:
-        try:
-            df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=hdr, engine="openpyxl")
-            if "區主管" in df.columns:
-                return df  # 成功找到區主管欄，視為正確 header
-        except Exception as e:
-            print(f"讀取 {sheet_name} 發生錯誤（header={hdr}）：{e}")
-    # 如果都失敗，就回傳空表
-    return pd.DataFrame()
+        for hdr in [default_header, 2]:
+            try:
+                df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=hdr, engine="openpyxl")
+                if "區主管" in df.columns:
+                    return df  # 成功找到區主管欄，視為正確 header
+            except Exception as e:
+                print(f"讀取 {sheet_name} 發生錯誤（header={hdr}）：{e}")
+        # 如果都失敗，就回傳空表
+        return pd.DataFrame()
 
 
     df_summary = parse_sheet("門店 考核總表", default_header=1)
