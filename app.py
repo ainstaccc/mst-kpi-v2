@@ -74,13 +74,24 @@ FILE_URL = "https://raw.githubusercontent.com/ainstaccc/mst-kpi-v2/main/v2-2025.
 
 @st.cache_data(ttl=3600)
 def load_data():
-    xls = pd.ExcelFile(FILE_URL, engine="openpyxl")
-    df_summary = xls.parse("門店 考核總表", header=1)
-    df_eff = xls.parse("人效分析", header=1)
-    df_mgr = xls.parse("店長副店 考核明細", header=1)
-    df_staff = xls.parse("店員儲備 考核明細", header=1)
-    df_dist = xls.parse("等級分布", header=None, nrows=15, usecols="A:N")
-    summary_month = xls.parse("門店 考核總表", nrows=1).columns[0]
+    def parse_sheet(sheet_name, default_header=1):
+        try:
+            df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=default_header, engine="openpyxl")
+            # 如果標題欄有 Unnamed 開頭，表示 header 有誤，改用 header=2 嘗試
+            if any(str(col).startswith("Unnamed") for col in df.columns):
+                df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=2, engine="openpyxl")
+        except Exception as e:
+            print(f"讀取 {sheet_name} 發生錯誤：{e}")
+            df = pd.DataFrame()
+        return df
+
+    df_summary = parse_sheet("門店 考核總表", default_header=1)
+    df_eff     = parse_sheet("人效分析", default_header=1)
+    df_mgr     = parse_sheet("店長副店 考核明細", default_header=1)
+    df_staff   = parse_sheet("店員儲備 考核明細", default_header=1)
+    df_dist    = pd.read_excel(FILE_URL, sheet_name="等級分布", header=None, nrows=15, usecols="A:N", engine="openpyxl")
+    summary_month = pd.read_excel(FILE_URL, sheet_name="門店 考核總表", nrows=1, engine="openpyxl").columns[0]
+
     return df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month
 
 def format_eff(df):
