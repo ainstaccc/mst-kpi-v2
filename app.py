@@ -219,6 +219,8 @@ def format_eff(df):
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.copy()
+    # 🧽 清洗欄位名稱（移除多餘空白或換行）
+    df.columns = df.columns.str.replace(r"\s+", " ", regex=True).str.strip()
 
     # 員編：補足8碼（不加千分位）
     if "員編" in df.columns:
