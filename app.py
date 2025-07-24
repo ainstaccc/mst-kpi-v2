@@ -214,6 +214,11 @@ def load_data():
         st.error(f"❌ 資料載入失敗：{e}")
         return None, None, None, None, None, None
 
+def format_staff_id(df):
+    if "員編" in df.columns:
+        df["員編"] = df["員編"].apply(lambda x: str(int(float(x))).zfill(8) if pd.notnull(x) else "")
+    return df
+
 # -------------------- 🧽 格式化人效分析欄位 --------------------
 def format_eff(df):
     if df is None or df.empty:
@@ -310,6 +315,11 @@ def main():
                 df_eff_result = df_eff_result[df_eff_result["部門編號"] == dept_code]
                 df_mgr_result = df_mgr_result[df_mgr_result["部門編號"] == dept_code]
                 df_staff_result = df_staff_result[df_staff_result["部門編號"] == dept_code]
+
+            df_result = format_staff_id(df_result)
+            df_mgr_result = format_staff_id(df_mgr_result)
+            df_staff_result = format_staff_id(df_staff_result)
+
 
             # ---------------- 成績參考圖示 ----------------
             st.image("https://raw.githubusercontent.com/ainstaccc/kpi-checker/main/2025.06_grade.jpg", use_column_width=True)
