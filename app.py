@@ -331,7 +331,7 @@ def main():
 
             # ---------------- 顯示表格：人效分析 ----------------
             st.markdown("## 👥 人效分析")
-            st.markdown("<span style='color:red;'>🔺關注指標：個績達成%、客單相對績效、會員相對績效</span>", unsafe_allow_html=True)
+            st.markdown("<span style='color:red;'>🔺計分指標：個績達成%、客單相對績效、會員相對績效</span>", unsafe_allow_html=True)
             
             df_eff_fmt = format_eff(df_eff_result)
             st.markdown(f"共查得：{len(df_eff_fmt)} 筆")
@@ -339,21 +339,27 @@ def main():
 
             # ---------------- 顯示表格：店長/副店考核明細 ----------------
             st.markdown("## 👔 店長/副店 考核明細")
+            st.markdown("<span style='color:red;'>🔺分數小計項：總分、業績項目分數、管理分數_人資、財務、商控、服務</span>", unsafe_allow_html=True)
+            
             df_mgr_display = pd.concat([
-                df_mgr_result.iloc[:, 1:7],   # 基本資料
-                df_mgr_result.iloc[:, 11:28]  # 各項評分
+                df_mgr_result.iloc[:, 1:7],
+                df_mgr_result.iloc[:, 11:28]
             ], axis=1)
             st.markdown(f"共查得：{len(df_mgr_display)} 筆")
             st.dataframe(df_mgr_display, use_container_width=True)
 
+
             # ---------------- 顯示表格：店員/儲備考核明細 ----------------
             st.markdown("## 👟 店員/儲備 考核明細")
+            st.markdown("<span style='color:red;'>🔺分數小計項：總分、業績項目分數、管理分數_人資、財務、商控、服務</span>", unsafe_allow_html=True)
+            
             df_staff_display = pd.concat([
                 df_staff_result.iloc[:, 1:7],
                 df_staff_result.iloc[:, 11:28]
             ], axis=1)
             st.markdown(f"共查得：{len(df_staff_display)} 筆")
             st.dataframe(df_staff_display, use_container_width=True)
+
 
             # ---------------- 備註提醒 ----------------
             st.markdown("<p style='color:red;font-weight:bold;font-size:16px;'>※如對分數有疑問，請洽區主管/品牌經理說明。</p>", unsafe_allow_html=True)
