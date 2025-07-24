@@ -8,7 +8,7 @@ from io import BytesIO
 # -------------------- 頁面設定 --------------------
 st.set_page_config(page_title="米斯特績效考核查詢", page_icon="📊")
 
-# -------------------- 登入驗證區塊 --------------------
+# -------------------- Google 登入驗證 --------------------
 GOOGLE_CLIENT_ID = st.secrets["google_oauth"]["client_id"]
 GOOGLE_CLIENT_SECRET = st.secrets["google_oauth"]["client_secret"]
 REDIRECT_URI = st.secrets["google_oauth"]["redirect_uri"]
@@ -41,7 +41,7 @@ def get_user_info(access_token):
     response = requests.get("https://www.googleapis.com/oauth2/v2/userinfo", headers=headers)
     return response.json()
 
-# -------------------- 登入驗證流程 --------------------
+# -------------------- 登入流程處理 --------------------
 query_params = st.experimental_get_query_params()
 code = query_params.get("code", [None])[0]
 
@@ -54,7 +54,7 @@ if "user_email" not in st.session_state:
             email = user_info.get("email", "").lower()
             if email in ALLOWED_USERS:
                 st.session_state.user_email = email
-                st.success(f"歡迎，{email}！")
+                st.success(f"👋 Hi {st.session_state.user_email}，歡迎使用查詢系統！")
             else:
                 st.error("❌ 此帳號未授權存取此應用程式。")
                 st.stop()
@@ -63,36 +63,28 @@ if "user_email" not in st.session_state:
             st.stop()
     else:
         login_url = get_login_url()
-        st.markdown(f"[Hello，米斯特的夥伴! 請登入 Google帳號，驗證後開始查詢考核成績 📊 ]({login_url})")
+        st.markdown(f"[Hello，米斯特夥伴! 請登入 Google帳號，驗證後開始查詢考核成績 📊 ]({login_url})")
         st.stop()
 else:
     st.write(f"✅ 你已登入：**{st.session_state.user_email}**")
 
-# -------------------- 資料載入區 --------------------
-FILE_URL = "https://raw.githubusercontent.com/ainstaccc/mst-kpi-v2/main/v2-2025.06_MST-PA.xlsx"
+# -------------------- 資料讀取與處理 --------------------
+FILE_URL = "https://raw.githubusercontent.com/ainstaccc/kpi-checker/main/2025.06_MST-PA.xlsx"
 
 @st.cache_data(ttl=3600)
 def load_data():
     try:
         xls = pd.ExcelFile(FILE_URL, engine="openpyxl")
-
-        def check_columns(df, name):
-            if "區主管" not in df.columns or "部門編號" not in df.columns:
-                st.error(f"❌ 【{name}】中缺少必要欄位：區主管 或 部門編號")
-                st.stop()
+        sheet_names = xls.sheet_names
+        required_sheets = ["門店 考核總表", "人效分析", "店長副店 考核明細", "店員儲備 考核明細", "等級分布"]
+        for name in required_sheets:
+            if name not in sheet_names:
+                raise ValueError(f"❌ 缺少必要工作表：{name}")
 
         df_summary = xls.parse("門店 考核總表", header=1)
-        check_columns(df_summary, "門店 考核總表")
-
         df_eff = xls.parse("人效分析", header=1)
-        check_columns(df_eff, "人效分析")
-
         df_mgr = xls.parse("店長副店 考核明細", header=1)
-        check_columns(df_mgr, "店長副店 考核明細")
-
         df_staff = xls.parse("店員儲備 考核明細", header=1)
-        check_columns(df_staff, "店員儲備 考核明細")
-
         df_dist = xls.parse("等級分布", header=None, nrows=15, usecols="A:N")
 
         try:
@@ -106,26 +98,9 @@ def load_data():
         return None, None, None, None, None, None
 
 def format_eff(df):
-    if df.empty:
-        return df
+    if df is None or df.empty:
+        return pd.DataFrame()
     df = df.copy()
-    # 模糊找出含換行的欄位
-    rename_map = {}
-    for col in df.columns:
-        if "品牌" in col and "客單" in col:
-            rename_map[col] = "品牌 客單價"
-        elif "個人" in col and "客單" in col:
-            rename_map[col] = "個人 客單價"
-        elif "客單" in col and "相對" in col:
-            rename_map[col] = "客單 相對績效"
-        elif "品牌" in col and "會員率" in col:
-            rename_map[col] = "品牌 結帳會員率"
-        elif "個人" in col and "會員率" in col:
-            rename_map[col] = "個人 結帳會員率"
-        elif "會員" in col and "相對" in col:
-            rename_map[col] = "會員 相對績效"
-    df = df.rename(columns=rename_map)
-
     for col in ["個績目標", "個績貢獻", "品牌 客單價", "個人 客單價"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
@@ -134,7 +109,8 @@ def format_eff(df):
             df[col] = df[col].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
     return df
 
-def run_main_ui():
+# -------------------- 主程式 --------------------
+def main():
     st.markdown("<h3>📊 米斯特 門市 工作績效月考核查詢系統</h3>", unsafe_allow_html=True)
 
     df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month = load_data()
@@ -144,9 +120,14 @@ def run_main_ui():
     with st.expander("🔍 查詢條件", expanded=True):
         st.markdown("**🔺查詢條件任一欄即可，避免多重條件造成查詢錯誤。**")
         col1, col2 = st.columns(2)
-        area = col1.selectbox("區域/區主管", options=[""] + sorted(df_summary["區主管"].dropna().unique()))
+        area = col1.selectbox("區域/區主管", options=[
+            "", "李政勳", "林宥儒", "羅婉心", "王建樹", "楊茜聿",
+            "陳宥蓉", "吳岱侑", "翁聖閔", "黃啓周", "栗晉屏", "王瑞辰"
+        ])
         dept_code = col2.text_input("部門編號/門店編號")
-        st.markdown(f"查詢月份：**{summary_month}**")
+        month = st.selectbox("查詢月份", options=["2025/06"])
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
 
     if st.button("🔎 查詢", type="primary"):
         try:
@@ -178,21 +159,27 @@ def run_main_ui():
 
             st.markdown("## 🧾 門店考核總表")
             st.markdown(f"共查得：{len(df_result)} 筆")
-            st.dataframe(df_result.iloc[:, 2:11] if not df_result.empty else pd.DataFrame(["查無資料"]), use_container_width=True)
+            st.dataframe(df_result.iloc[:, 2:11], use_container_width=True)
 
             st.markdown("## 👥 人效分析")
             df_eff_fmt = format_eff(df_eff_result)
             st.markdown(f"共查得：{len(df_eff_fmt)} 筆")
-            st.dataframe(df_eff_fmt if not df_eff_fmt.empty else pd.DataFrame(["查無資料"]), use_container_width=True)
+            st.dataframe(df_eff_fmt, use_container_width=True)
 
             st.markdown("## 👔 店長/副店 考核明細")
-            df_mgr_display = pd.concat([df_mgr_result.iloc[:, 1:7], df_mgr_result.iloc[:, 11:28]], axis=1) if not df_mgr_result.empty else pd.DataFrame(["查無資料"])
-            st.markdown(f"共查得：{len(df_mgr_result)} 筆")
+            df_mgr_display = pd.concat([
+                df_mgr_result.iloc[:, 1:7],
+                df_mgr_result.iloc[:, 11:28]
+            ], axis=1)
+            st.markdown(f"共查得：{len(df_mgr_display)} 筆")
             st.dataframe(df_mgr_display, use_container_width=True)
 
             st.markdown("## 👟 店員/儲備 考核明細")
-            df_staff_display = pd.concat([df_staff_result.iloc[:, 1:7], df_staff_result.iloc[:, 11:28]], axis=1) if not df_staff_result.empty else pd.DataFrame(["查無資料"])
-            st.markdown(f"共查得：{len(df_staff_result)} 筆")
+            df_staff_display = pd.concat([
+                df_staff_result.iloc[:, 1:7],
+                df_staff_result.iloc[:, 11:28]
+            ], axis=1)
+            st.markdown(f"共查得：{len(df_staff_display)} 筆")
             st.dataframe(df_staff_display, use_container_width=True)
 
             st.markdown("<p style='color:red;font-weight:bold;font-size:16px;'>※如對分數有疑問，請洽區主管/品牌經理說明。</p>", unsafe_allow_html=True)
@@ -200,6 +187,5 @@ def run_main_ui():
         except Exception as e:
             st.error(f"❌ 查詢過程發生錯誤：{e}")
 
-# -------------------- 執行主流程 --------------------
 if __name__ == "__main__":
-    run_main_ui()
+    main()
