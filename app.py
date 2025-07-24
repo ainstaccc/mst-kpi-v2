@@ -177,7 +177,6 @@ if "user_email" not in st.session_state:
 
 
 # -------------------- 資料讀取與處理 --------------------
-# -------------------- 資料來源 --------------------
 FILE_URL = "https://raw.githubusercontent.com/ainstaccc/kpi-checker/main/2025.06_MST-PA.xlsx"
 
 @st.cache_data(ttl=3600)
@@ -206,56 +205,122 @@ def load_data():
         st.error(f"❌ 資料載入失敗：{e}")
         return None, None, None, None, None, None
 
-# -------------------- 格式處理：人效分析紅字 --------------------
-def format_eff(df):
+
+# 🧾 門店考核總表格式化
+def format_summary(df):
     if df is None or df.empty:
-        return pd.DataFrame()
+        return df
     df = df.copy()
 
-    # 員編轉8碼
+    # 員編純8碼
     if "員編" in df.columns:
         df["員編"] = df["員編"].astype(str).str.zfill(8)
 
-    # 考核項目紅字（<80）
-    assess_cols = [col for col in df.columns if "考核" in col and "分數" in col]
-    for col in assess_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
-        df[col] = df[col].apply(
-            lambda x: f"<span style='color:red;font-weight:bold'>{x:.1f}</span>" if pd.notnull(x) and x < 80 else f"{x:.1f}" if pd.notnull(x) else ""
-        )
+    # 考核項目分數顯示小數1位
+    if "考核項目分數" in df.columns:
+        df["考核項目分數"] = pd.to_numeric(df["考核項目分數"], errors="coerce").round(1)
 
-    # 管理項目紅字（<25）
-    manage_cols = [col for col in df.columns if "管理" in col and "分數" in col]
-    for col in manage_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-        df[col] = df[col].apply(
-            lambda x: f"<span style='color:red;font-weight:bold'>{x:.0f}</span>" if pd.notnull(x) and x < 25 else f"{x:.0f}" if pd.notnull(x) else ""
-        )
+    # 欄位標題紅字
+    header_red = {"需訪談", "重點關注"}
+    df.rename(columns={col: f"🔴{col}" for col in df.columns if col in header_red}, inplace=True)
 
-    # 數字格式欄位
-    for col in ["個績目標", "個績貢獻", "品牌 客單價", "個人 客單價"]:
+    # 條件格式函式
+    def style_score(val):
+        try:
+            val = float(val)
+            return "color:red;font-weight:bold;" if val < 80 else ""
+        except:
+            return ""
+
+    def style_mgmt(val):
+        try:
+            val = float(val)
+            return "color:red;font-weight:bold;" if val < 25 else ""
+        except:
+            return ""
+
+    style = df.style
+    if "考核項目分數" in df.columns:
+        style = style.applymap(style_score, subset=["考核項目分數"])
+    if "管理項目分數" in df.columns:
+        style = style.applymap(style_mgmt, subset=["管理項目分數"])
+
+    return style
+
+# 👥 人效分析格式化
+def format_eff(df):
+    if df is None or df.empty:
+        return df
+    df = df.copy()
+
+    if "員編" in df.columns:
+        df["員編"] = df["員編"].astype(str).str.zfill(8)
+
+    pct_cols = ["客單 相對績效", "品牌 結帳會員率", "個人 結帳會員率", "會員 相對績效"]
+    for col in pct_cols:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
+            df[col] = pd.to_numeric(df[col], errors="coerce").round(1).apply(lambda x: f"{x}%" if pd.notnull(x) else "")
 
-    # 百分比欄位
-    for col in ["個績達成%", "客單 相對績效", "品牌 結帳會員率", "個人 結帳會員率", "會員 相對績效"]:
-        if col in df.columns:
-            df[col] = df[col].apply(lambda x: f"{x}%" if pd.notnull(x) else "")
-
-    # 標題紅字
-    df.columns = [f"<span style='color:red'>{c}</span>" if c in ["需訪談", "重點關注"] else c for c in df.columns]
+    header_red = {"個績達成%", "客單 相對績效", "會員 相對績效"}
+    df.rename(columns={col: f"🔴{col}" for col in df.columns if col in header_red}, inplace=True)
 
     return df
 
+# 👔 店長/副店 格式化
+def format_mgr(df):
+    if df is None or df.empty:
+        return df
+    df = df.copy()
+
+    if "員編" in df.columns:
+        df["員編"] = df["員編"].astype(str).str.zfill(8)
+    if "總分" in df.columns:
+        df["總分"] = pd.to_numeric(df["總分"], errors="coerce").round(1)
+
+    red_headers = {"總分", "業績項目分數", "管理分數_人資", "管理分數_財務", "管理分數_商控", "管理分數_服務"}
+    df.rename(columns={col: f"🔴{col}" for col in df.columns if col in red_headers}, inplace=True)
+
+    def style_total(val):
+        try:
+            val = float(val)
+            return "color:red;font-weight:bold;" if val < 80 else ""
+        except:
+            return ""
+
+    style = df.style
+    if "總分" in df.columns:
+        style = style.applymap(style_total, subset=["總分"])
+    return style
+
+# 👟 店員/儲備 格式化
+def format_staff(df):
+    if df is None or df.empty:
+        return df
+    df = df.copy()
+
+    if "員編" in df.columns:
+        df["員編"] = df["員編"].astype(str).str.zfill(8)
+    if "總分" in df.columns:
+        df["總分"] = pd.to_numeric(df["總分"], errors="coerce").round(1)
+
+    red_headers = {"總分", "業績項目分數", "管理分數_人資", "管理分數_財務", "管理分數_商控", "管理分數_服務"}
+    df.rename(columns={col: f"🔴{col}" for col in df.columns if col in red_headers}, inplace=True)
+
+    def style_total(val):
+        try:
+            val = float(val)
+            return "color:red;font-weight:bold;" if val < 80 else ""
+        except:
+            return ""
+
+    style = df.style
+    if "總分" in df.columns:
+        style = style.applymap(style_total, subset=["總分"])
+    return style
+
 # -------------------- 主程式 --------------------
-st.title("📊 米斯特｜人效分析表格展示（紅字標示）")
-
-df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month = load_data()
-
-if df_eff is not None:
-    df_show = format_eff(df_eff)
-    st.markdown(f"### 🔹 分析月份：{summary_month}")
-    st.markdown(df_show.to_html(escape=False, index=False), unsafe_allow_html=True)
+def main():
+    st.markdown("<h3>📊 米斯特 門市 工作績效月考核查詢系統</h3>", unsafe_allow_html=True)
 
     df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month = load_data()
     if df_summary is None:
@@ -303,12 +368,11 @@ if df_eff is not None:
 
             st.markdown("## 🧾 門店考核總表")
             st.markdown(f"共查得：{len(df_result)} 筆")
-            st.dataframe(df_result.iloc[:, 2:11], use_container_width=True)
+            st.dataframe(format_summary(df_result), use_container_width=True)
 
             st.markdown("## 👥 人效分析")
-            df_eff_fmt = format_eff(df_eff_result)
-            st.markdown(f"共查得：{len(df_eff_fmt)} 筆")
-            st.dataframe(df_eff_fmt, use_container_width=True)
+            st.markdown(f"共查得：{len(df_eff_result)} 筆")
+            st.dataframe(format_eff(df_eff_result), use_container_width=True)
 
             st.markdown("## 👔 店長/副店 考核明細")
             df_mgr_display = pd.concat([
@@ -316,7 +380,7 @@ if df_eff is not None:
                 df_mgr_result.iloc[:, 11:28]
             ], axis=1)
             st.markdown(f"共查得：{len(df_mgr_display)} 筆")
-            st.dataframe(df_mgr_display, use_container_width=True)
+            st.dataframe(format_mgr(df_mgr_display), use_container_width=True)
 
             st.markdown("## 👟 店員/儲備 考核明細")
             df_staff_display = pd.concat([
@@ -324,7 +388,7 @@ if df_eff is not None:
                 df_staff_result.iloc[:, 11:28]
             ], axis=1)
             st.markdown(f"共查得：{len(df_staff_display)} 筆")
-            st.dataframe(df_staff_display, use_container_width=True)
+            st.dataframe(format_staff(df_staff_display), use_container_width=True)
 
             st.markdown("<p style='color:red;font-weight:bold;font-size:16px;'>※如對分數有疑問，請洽區主管/品牌經理說明。</p>", unsafe_allow_html=True)
 
