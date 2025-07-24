@@ -205,17 +205,7 @@ def load_data():
         st.error(f"❌ 資料載入失敗：{e}")
         return None, None, None, None, None, None
 
-def format_eff(df):
-    if df is None or df.empty:
-        return pd.DataFrame()
-    df = df.copy()
-    for col in ["個績目標", "個績貢獻", "品牌 客單價", "個人 客單價"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
-    for col in ["個績達成%", "客單 相對績效", "品牌 結帳會員率", "個人 結帳會員率", "會員 相對績效"]:
-        if col in df.columns:
-            df[col] = df[col].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-    return df
+
 # 🧾 門店考核總表格式化
 def format_summary(df):
     if df is None or df.empty:
