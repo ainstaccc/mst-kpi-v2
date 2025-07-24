@@ -6,7 +6,7 @@ import pandas as pd
 from io import BytesIO
 
 # -------------------- 頁面設定 --------------------
-st.set_page_config(page_title="米斯特月考核查詢", page_icon="📊")
+st.set_page_config(page_title="米斯特績效考核查詢", page_icon="📊")
 
 # -------------------- 登入驗證區塊 --------------------
 GOOGLE_CLIENT_ID = st.secrets["google_oauth"]["client_id"]
@@ -75,15 +75,31 @@ FILE_URL = "https://raw.githubusercontent.com/ainstaccc/mst-kpi-v2/main/v2-2025.
 def load_data():
     try:
         xls = pd.ExcelFile(FILE_URL, engine="openpyxl")
+
+        def check_columns(df, name):
+            if "區主管" not in df.columns or "部門編號" not in df.columns:
+                st.error(f"❌ 【{name}】中缺少必要欄位：區主管 或 部門編號")
+                st.stop()
+
         df_summary = xls.parse("門店 考核總表", header=1)
-        df_eff     = xls.parse("人效分析", header=1)
-        df_mgr     = xls.parse("店長副店 考核明細", header=1)
-        df_staff   = xls.parse("店員儲備 考核明細", header=1)
-        df_dist    = xls.parse("等級分布", header=None, nrows=15, usecols="A:N")
+        check_columns(df_summary, "門店 考核總表")
+
+        df_eff = xls.parse("人效分析", header=1)
+        check_columns(df_eff, "人效分析")
+
+        df_mgr = xls.parse("店長副店 考核明細", header=1)
+        check_columns(df_mgr, "店長副店 考核明細")
+
+        df_staff = xls.parse("店員儲備 考核明細", header=1)
+        check_columns(df_staff, "店員儲備 考核明細")
+
+        df_dist = xls.parse("等級分布", header=None, nrows=15, usecols="A:N")
+
         try:
             summary_month = xls.parse("門店 考核總表", header=None, nrows=1).iloc[0, 0]
         except Exception:
             summary_month = "未知月份"
+
         return df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month
     except Exception as e:
         st.error(f"❌ 資料載入失敗：{e}")
@@ -93,6 +109,23 @@ def format_eff(df):
     if df.empty:
         return df
     df = df.copy()
+    # 模糊找出含換行的欄位
+    rename_map = {}
+    for col in df.columns:
+        if "品牌" in col and "客單" in col:
+            rename_map[col] = "品牌 客單價"
+        elif "個人" in col and "客單" in col:
+            rename_map[col] = "個人 客單價"
+        elif "客單" in col and "相對" in col:
+            rename_map[col] = "客單 相對績效"
+        elif "品牌" in col and "會員率" in col:
+            rename_map[col] = "品牌 結帳會員率"
+        elif "個人" in col and "會員率" in col:
+            rename_map[col] = "個人 結帳會員率"
+        elif "會員" in col and "相對" in col:
+            rename_map[col] = "會員 相對績效"
+    df = df.rename(columns=rename_map)
+
     for col in ["個績目標", "個績貢獻", "品牌 客單價", "個人 客單價"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
@@ -114,8 +147,6 @@ def run_main_ui():
         area = col1.selectbox("區域/區主管", options=[""] + sorted(df_summary["區主管"].dropna().unique()))
         dept_code = col2.text_input("部門編號/門店編號")
         st.markdown(f"查詢月份：**{summary_month}**")
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     if st.button("🔎 查詢", type="primary"):
         try:
@@ -163,16 +194,6 @@ def run_main_ui():
             df_staff_display = pd.concat([df_staff_result.iloc[:, 1:7], df_staff_result.iloc[:, 11:28]], axis=1) if not df_staff_result.empty else pd.DataFrame(["查無資料"])
             st.markdown(f"共查得：{len(df_staff_result)} 筆")
             st.dataframe(df_staff_display, use_container_width=True)
-
-            output_excel = BytesIO()
-            with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
-                (df_result.iloc[:, 2:11] if not df_result.empty else pd.DataFrame(["查無資料"])).to_excel(writer, sheet_name="門店考核總表", index=False, header=False)
-                (df_eff_fmt if not df_eff_fmt.empty else pd.DataFrame(["查無資料"])).to_excel(writer, sheet_name="人效分析", index=False, header=False)
-                df_mgr_display.to_excel(writer, sheet_name="店長副店 考核明細", index=False, header=False)
-                df_staff_display.to_excel(writer, sheet_name="店員儲備 考核明細", index=False, header=False)
-            output_excel.seek(0)
-
-            st.download_button("📥 下載查詢結果 Excel", data=output_excel, file_name="考核查詢結果.xlsx")
 
             st.markdown("<p style='color:red;font-weight:bold;font-size:16px;'>※如對分數有疑問，請洽區主管/品牌經理說明。</p>", unsafe_allow_html=True)
 
