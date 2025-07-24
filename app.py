@@ -161,9 +161,8 @@ if "user_email" not in st.session_state:
             email = user_info.get("email", "").lower()
             if email in ALLOWED_USERS:
                 st.session_state.user_email = email
-                user_name = EMAIL_TO_NAME.get(email, email)  # 預設顯示 email，如果沒對應名字
+                user_name = EMAIL_TO_NAME.get(email, email)
                 st.success(f"👋 Hi {user_name}，歡迎使用查詢系統！")
-
             else:
                 st.error("❌ 此帳號未授權存取此應用程式。")
                 st.stop()
@@ -174,9 +173,11 @@ if "user_email" not in st.session_state:
         login_url = get_login_url()
         st.markdown(f"[Hello，米斯特夥伴! 請登入 Google帳號，驗證後開始查詢考核成績 📊 ]({login_url})")
         st.stop()
-else:
+
+# ✅ 若已登入過，直接顯示歡迎詞
 user_name = EMAIL_TO_NAME.get(st.session_state.user_email, st.session_state.user_email)
 st.success(f"👋 Hi {user_name}，歡迎使用查詢系統！")
+
 
 
 # -------------------- 資料讀取與處理 --------------------
