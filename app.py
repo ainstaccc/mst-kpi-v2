@@ -220,17 +220,47 @@ def format_eff(df):
         return pd.DataFrame()
     df = df.copy()
 
-    # 小數欄位：轉為數字後四捨五入至小數1位
-    for col in ["個績目標", "個績貢獻", "品牌 客單價", "個人 客單價"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
+    # 員編：補足8碼（不加千分位）
+    if "員編" in df.columns:
+        df["員編"] = df["員編"].astype(str).str.zfill(8)
 
-    # 百分比欄位：補上 "%" 字樣
-    for col in ["個績達成%", "客單 相對績效", "品牌 結帳會員率", "個人 結帳會員率", "會員 相對績效"]:
+    # 金額欄位：轉為千分位整數（純顯示用的文字格式）
+    for col in ["個績目標", "個績貢獻"]:
         if col in df.columns:
-            df[col] = df[col].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
+            df[col] = (
+                df[col].astype(str)
+                .str.replace(",", "")
+                .astype(float)
+                .round(0)
+                .map(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
+            )
+
+    # 個績達成%：統一 xx.x% 格式
+    if "個績達成%" in df.columns:
+        df["個績達成%"] = df["個績達成%"].apply(
+            lambda x: f"{float(str(x).replace('%', '')):.1f}%" if pd.notnull(x) else x
+        )
+
+    # 客單價欄位：顯示為整數
+    for col in ["品牌 客單價", "個人 客單價"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").round(0).astype("Int64")
+
+    # 客單相對績效：轉為百分比整數（加%）
+    if "客單 相對績效" in df.columns:
+        df["客單 相對績效"] = df["客單 相對績效"].apply(
+            lambda x: f"{round(x * 100)}%" if pd.notnull(x) else x
+        )
+
+    # 結帳會員率 / 會員相對績效：轉為百分比整數（加%）
+    for col in ["品牌 結帳會員率", "個人 結帳會員率", "會員 相對績效"]:
+        if col in df.columns:
+            df[col] = df[col].apply(
+                lambda x: f"{round(x * 100)}%" if pd.notnull(x) else x
+            )
 
     return df
+
 
 # -------------------- 🚀 主程式入口 --------------------
 def main():
