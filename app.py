@@ -331,6 +331,8 @@ def main():
 
             # ---------------- 顯示表格：人效分析 ----------------
             st.markdown("## 👥 人效分析")
+            st.markdown("<span style='color:red;'>🔺關注指標：個績達成%、客單相對績效、會員相對績效</span>", unsafe_allow_html=True)
+            
             df_eff_fmt = format_eff(df_eff_result)
             st.markdown(f"共查得：{len(df_eff_fmt)} 筆")
             st.dataframe(df_eff_fmt, use_container_width=True)
