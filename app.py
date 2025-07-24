@@ -326,8 +326,37 @@ def main():
 
             # ---------------- 顯示表格：門店考核總表 ----------------
             st.markdown("## 🧾 門店考核總表")
-            st.markdown(f"共查得：{len(df_result)} 筆")
-            st.dataframe(df_result.iloc[:, 2:11], use_container_width=True)
+            st.markdown("<span style='color:red;'>🔺紅字顯示：考核項目分數＜80、管理項目分數＜25</span>", unsafe_allow_html=True)
+            
+            df_display = df_result.copy()
+            
+            # ➤ 員編處理：補足8碼、移除小數點
+            if "員編" in df_display.columns:
+                df_display["員編"] = df_display["員編"].apply(lambda x: str(int(float(x))).zfill(8) if pd.notnull(x) else "")
+            
+            # ➤ 標註紅字邏輯
+            def highlight_scores(val, col):
+                try:
+                    num = float(val)
+                    if col == "考核項目分數" and num < 80:
+                        return "color: red;"
+                    elif col == "管理項目分數" and num < 25:
+                        return "color: red;"
+                    else:
+                        return ""
+                except:
+                    return ""
+            
+            # ➤ 指定要套用樣式的欄位
+            cols_to_highlight = ["考核項目分數", "管理項目分數"]
+            styled = df_display.style.apply(
+                lambda col: [highlight_scores(v, col.name) for v in col],
+                subset=cols_to_highlight
+            )
+            
+            st.markdown(f"共查得：{len(df_display)} 筆")
+            st.dataframe(styled, use_container_width=True)
+
 
             # ---------------- 顯示表格：人效分析 ----------------
             st.markdown("## 👥 人效分析")
