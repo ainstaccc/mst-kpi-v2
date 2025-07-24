@@ -5,9 +5,10 @@ from urllib.parse import urlencode
 import pandas as pd
 from io import BytesIO
 
-# -------------------- 登入驗證區塊 --------------------
-st.set_page_config(page_title="登入驗證", page_icon="🔐")
+# -------------------- 頁面設定 --------------------
+st.set_page_config(page_title="米斯特月考核查詢", page_icon="📊")
 
+# -------------------- 登入驗證區塊 --------------------
 GOOGLE_CLIENT_ID = st.secrets["google_oauth"]["client_id"]
 GOOGLE_CLIENT_SECRET = st.secrets["google_oauth"]["client_secret"]
 REDIRECT_URI = st.secrets["google_oauth"]["redirect_uri"]
@@ -40,7 +41,7 @@ def get_user_info(access_token):
     response = requests.get("https://www.googleapis.com/oauth2/v2/userinfo", headers=headers)
     return response.json()
 
-# 登入驗證流程
+# -------------------- 登入驗證流程 --------------------
 query_params = st.experimental_get_query_params()
 code = query_params.get("code", [None])[0]
 
@@ -67,29 +68,26 @@ if "user_email" not in st.session_state:
 else:
     st.write(f"✅ 你已登入：**{st.session_state.user_email}**")
 
-# -------------------- 系統主功能區 --------------------
-
+# -------------------- 資料載入區 --------------------
 FILE_URL = "https://raw.githubusercontent.com/ainstaccc/mst-kpi-v2/main/v2-2025.06_MST-PA.xlsx"
 
 @st.cache_data(ttl=3600)
 def load_data():
-    def parse_sheet(sheet_name, default_header=1):
-        for hdr in [default_header, 2]:
-            try:
-                df = pd.read_excel(FILE_URL, sheet_name=sheet_name, header=hdr, engine="openpyxl")
-                if "區主管" in df.columns:
-                    return df
-            except Exception as e:
-                print(f"讀取 {sheet_name} 發生錯誤（header={hdr}）：{e}")
-        return pd.DataFrame()
-
-    df_summary = parse_sheet("門店 考核總表", default_header=1)
-    df_eff     = parse_sheet("人效分析", default_header=1)
-    df_mgr     = parse_sheet("店長副店 考核明細", default_header=2)
-    df_staff   = parse_sheet("店員儲備 考核明細", default_header=2)
-    df_dist    = pd.read_excel(FILE_URL, sheet_name="等級分布", header=None, nrows=15, usecols="A:N", engine="openpyxl")
-    summary_month = pd.read_excel(FILE_URL, sheet_name="門店 考核總表", nrows=1, engine="openpyxl").columns[0]
-    return df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month
+    try:
+        xls = pd.ExcelFile(FILE_URL, engine="openpyxl")
+        df_summary = xls.parse("門店 考核總表", header=1)
+        df_eff     = xls.parse("人效分析", header=1)
+        df_mgr     = xls.parse("店長副店 考核明細", header=1)
+        df_staff   = xls.parse("店員儲備 考核明細", header=1)
+        df_dist    = xls.parse("等級分布", header=None, nrows=15, usecols="A:N")
+        try:
+            summary_month = xls.parse("門店 考核總表", header=None, nrows=1).iloc[0, 0]
+        except Exception:
+            summary_month = "未知月份"
+        return df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month
+    except Exception as e:
+        st.error(f"❌ 資料載入失敗：{e}")
+        return None, None, None, None, None, None
 
 def format_eff(df):
     if df.empty:
@@ -103,61 +101,84 @@ def format_eff(df):
             df[col] = df[col].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
     return df
 
-def safe_filter(df, col_name, value):
-    if col_name in df.columns and value:
-        return df[df[col_name] == value]
-    return df
-
-def main():
+def run_main_ui():
     st.markdown("<h3>📊 米斯特 門市 工作績效月考核查詢系統</h3>", unsafe_allow_html=True)
+
     df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month = load_data()
+    if df_summary is None:
+        st.stop()
 
     with st.expander("🔍 查詢條件", expanded=True):
         st.markdown("**🔺查詢條件任一欄即可，避免多重條件造成查詢錯誤。**")
         col1, col2 = st.columns(2)
-        area = col1.selectbox("區域/區主管", options=[""] + list(df_summary["區主管"].dropna().unique()))
+        area = col1.selectbox("區域/區主管", options=[""] + sorted(df_summary["區主管"].dropna().unique()))
         dept_code = col2.text_input("部門編號/門店編號")
         st.markdown(f"查詢月份：**{summary_month}**")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
     if st.button("🔎 查詢", type="primary"):
-        df_result = safe_filter(df_summary, "區主管", area)
-        df_result = safe_filter(df_result, "部門編號", dept_code)
+        try:
+            df_result = df_summary.copy()
+            if area:
+                df_result = df_result[df_result["區主管"] == area]
+            if dept_code:
+                df_result = df_result[df_result["部門編號"] == dept_code]
 
-        df_eff_result = safe_filter(df_eff, "區主管", area)
-        df_eff_result = safe_filter(df_eff_result, "部門編號", dept_code)
+            df_eff_result = df_eff.copy()
+            if area:
+                df_eff_result = df_eff_result[df_eff_result["區主管"] == area]
+            if dept_code:
+                df_eff_result = df_eff_result[df_eff_result["部門編號"] == dept_code]
 
-        df_mgr_result = safe_filter(df_mgr, "區主管", area)
-        df_mgr_result = safe_filter(df_mgr_result, "部門編號", dept_code)
+            df_mgr_result = df_mgr.copy()
+            if area:
+                df_mgr_result = df_mgr_result[df_mgr_result["區主管"] == area]
+            if dept_code:
+                df_mgr_result = df_mgr_result[df_mgr_result["部門編號"] == dept_code]
 
-        df_staff_result = safe_filter(df_staff, "區主管", area)
-        df_staff_result = safe_filter(df_staff_result, "部門編號", dept_code)
+            df_staff_result = df_staff.copy()
+            if area:
+                df_staff_result = df_staff_result[df_staff_result["區主管"] == area]
+            if dept_code:
+                df_staff_result = df_staff_result[df_staff_result["部門編號"] == dept_code]
 
-        st.markdown("## 🧾 門店考核總表")
-        st.dataframe(df_result.iloc[:, 2:11] if not df_result.empty else pd.DataFrame(["查無資料"]), use_container_width=True)
+            st.image("https://raw.githubusercontent.com/ainstaccc/kpi-checker/main/2025.06_grade.jpg", use_column_width=True)
 
-        st.markdown("## 👥 人效分析")
-        df_eff_result_fmt = format_eff(df_eff_result)
-        st.dataframe(df_eff_result_fmt if not df_eff_result.empty else pd.DataFrame(["查無資料"]), use_container_width=True)
+            st.markdown("## 🧾 門店考核總表")
+            st.markdown(f"共查得：{len(df_result)} 筆")
+            st.dataframe(df_result.iloc[:, 2:11] if not df_result.empty else pd.DataFrame(["查無資料"]), use_container_width=True)
 
-        st.markdown("## 👔 店長/副店 考核明細")
-        df_mgr_display = pd.concat([df_mgr_result.iloc[:, 1:7], df_mgr_result.iloc[:, 11:28]], axis=1) if not df_mgr_result.empty else pd.DataFrame(["查無資料"])
-        st.dataframe(df_mgr_display, use_container_width=True)
+            st.markdown("## 👥 人效分析")
+            df_eff_fmt = format_eff(df_eff_result)
+            st.markdown(f"共查得：{len(df_eff_fmt)} 筆")
+            st.dataframe(df_eff_fmt if not df_eff_fmt.empty else pd.DataFrame(["查無資料"]), use_container_width=True)
 
-        st.markdown("## 👟 店員/儲備 考核明細")
-        df_staff_display = pd.concat([df_staff_result.iloc[:, 1:7], df_staff_result.iloc[:, 11:28]], axis=1) if not df_staff_result.empty else pd.DataFrame(["查無資料"])
-        st.dataframe(df_staff_display, use_container_width=True)
+            st.markdown("## 👔 店長/副店 考核明細")
+            df_mgr_display = pd.concat([df_mgr_result.iloc[:, 1:7], df_mgr_result.iloc[:, 11:28]], axis=1) if not df_mgr_result.empty else pd.DataFrame(["查無資料"])
+            st.markdown(f"共查得：{len(df_mgr_result)} 筆")
+            st.dataframe(df_mgr_display, use_container_width=True)
 
-        output_excel = BytesIO()
-        with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
-            (df_result.iloc[:, 2:11] if not df_result.empty else pd.DataFrame(["查無資料"])).to_excel(writer, sheet_name="門店考核總表", index=False, header=False)
-            (df_eff_result_fmt if not df_eff_result.empty else pd.DataFrame(["查無資料"])).to_excel(writer, sheet_name="人效分析", index=False, header=False)
-            df_mgr_display.to_excel(writer, sheet_name="店長副店 考核明細", index=False, header=False)
-            df_staff_display.to_excel(writer, sheet_name="店員儲備 考核明細", index=False, header=False)
-        output_excel.seek(0)
+            st.markdown("## 👟 店員/儲備 考核明細")
+            df_staff_display = pd.concat([df_staff_result.iloc[:, 1:7], df_staff_result.iloc[:, 11:28]], axis=1) if not df_staff_result.empty else pd.DataFrame(["查無資料"])
+            st.markdown(f"共查得：{len(df_staff_result)} 筆")
+            st.dataframe(df_staff_display, use_container_width=True)
 
-        st.download_button("📥 下載查詢結果 Excel", data=output_excel, file_name="考核查詢結果.xlsx")
+            output_excel = BytesIO()
+            with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
+                (df_result.iloc[:, 2:11] if not df_result.empty else pd.DataFrame(["查無資料"])).to_excel(writer, sheet_name="門店考核總表", index=False, header=False)
+                (df_eff_fmt if not df_eff_fmt.empty else pd.DataFrame(["查無資料"])).to_excel(writer, sheet_name="人效分析", index=False, header=False)
+                df_mgr_display.to_excel(writer, sheet_name="店長副店 考核明細", index=False, header=False)
+                df_staff_display.to_excel(writer, sheet_name="店員儲備 考核明細", index=False, header=False)
+            output_excel.seek(0)
 
-        st.markdown("<p style='color:red;font-weight:bold;font-size:16px;'>※如對分數有疑問，請洽區主管/品牌經理說明。</p>", unsafe_allow_html=True)
+            st.download_button("📥 下載查詢結果 Excel", data=output_excel, file_name="考核查詢結果.xlsx")
 
+            st.markdown("<p style='color:red;font-weight:bold;font-size:16px;'>※如對分數有疑問，請洽區主管/品牌經理說明。</p>", unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"❌ 查詢過程發生錯誤：{e}")
+
+# -------------------- 執行主流程 --------------------
 if __name__ == "__main__":
-    main()
+    run_main_ui()
