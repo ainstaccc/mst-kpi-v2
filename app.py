@@ -328,21 +328,21 @@ def main():
             st.markdown("## 🧾 門店考核總表")
             st.markdown("<span style='color:red;'>🔺紅字顯示：考核項目分數＜80、管理項目分數＜25</span>", unsafe_allow_html=True)
             
-            df_display = df_result.iloc[:, 2:11].copy()  # 保留原始欄位選取
+            df_display = df_result.iloc[:, 2:11].copy()
             
-            # 員編欄位格式：補滿8碼 + 去小數點
+            # 員編：補足8碼 + 去除小數點
             if "員編" in df_display.columns:
                 df_display["員編"] = df_display["員編"].apply(lambda x: str(int(float(x))).zfill(8) if pd.notnull(x) else "")
             
-            # 考核項目分數 ➜ 四捨五入至小數第1位
+            # 考核項目分數：保留1位小數
             if "考核項目分數" in df_display.columns:
                 df_display["考核項目分數"] = pd.to_numeric(df_display["考核項目分數"], errors="coerce").round(1)
             
-            # 管理項目分數 ➜ 確保為整數顯示
+            # 管理項目分數：保留整數
             if "管理項目分數" in df_display.columns:
                 df_display["管理項目分數"] = pd.to_numeric(df_display["管理項目分數"], errors="coerce").astype("Int64")
             
-            # 紅字條件樣式函數
+            # 紅字樣式條件
             def highlight_scores(val, col):
                 try:
                     num = float(val)
@@ -355,17 +355,16 @@ def main():
                 except:
                     return ""
             
-            # 套用紅字樣式（僅針對目標欄位）
             cols_to_highlight = ["考核項目分數", "管理項目分數"]
             styled = df_display.style.apply(
                 lambda col: [highlight_scores(v, col.name) for v in col],
                 subset=cols_to_highlight
-            )
+            ).format({
+                "考核項目分數": "{:.1f}"  # 顯示到小數1位
+            })
             
             st.markdown(f"共查得：{len(df_display)} 筆")
             st.dataframe(styled, use_container_width=True)
-
-
 
             # ---------------- 顯示表格：人效分析 ----------------
             st.markdown("## 👥 人效分析")
