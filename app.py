@@ -171,11 +171,24 @@ if "user_email" not in st.session_state:
             st.stop()
     else:
         login_url = get_login_url()
-        st.markdown(f"[Hello，米斯特夥伴! 請登入 Google帳號，驗證後開始查詢考核成績 📊 ]({login_url})")
+        st.markdown("<h3>📊 米斯特 門市 工作績效月考核查詢系統</h3>", unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        ### 👋 Hello，米斯特夥伴!  
+        請先登入 Google 帳號完成驗證，即可查詢每月考核成績：  
+        👉 [立即登入]({login_url})
+        
+        ---
+        
+        🔺 **門市**：請使用門市 Gmail 帳號登入  
+        🔺 **營運主管**：請使用公司個人 Gmail 帳號登入  
+        🔺 每月考核結果會在 **每月5日更新**，如有疑慮，請於 **當月8日（含）前**完成申覆，逾期未提出者，視為認同本次考核結果。
+        
+        📌 **例：**  
+        8月5日更新「7月考核」 → 須於 8月8日 前完成申覆。
+        """, unsafe_allow_html=True)
+        
         st.stop()
-
-
-
 
 
 # -------------------- 📂 資料來源設定 --------------------
