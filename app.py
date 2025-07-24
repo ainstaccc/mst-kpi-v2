@@ -177,6 +177,7 @@ if "user_email" not in st.session_state:
 
 
 # -------------------- 資料讀取與處理 --------------------
+# -------------------- 資料來源 --------------------
 FILE_URL = "https://raw.githubusercontent.com/ainstaccc/kpi-checker/main/2025.06_MST-PA.xlsx"
 
 @st.cache_data(ttl=3600)
@@ -205,21 +206,56 @@ def load_data():
         st.error(f"❌ 資料載入失敗：{e}")
         return None, None, None, None, None, None
 
+# -------------------- 格式處理：人效分析紅字 --------------------
 def format_eff(df):
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.copy()
+
+    # 員編轉8碼
+    if "員編" in df.columns:
+        df["員編"] = df["員編"].astype(str).str.zfill(8)
+
+    # 考核項目紅字（<80）
+    assess_cols = [col for col in df.columns if "考核" in col and "分數" in col]
+    for col in assess_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
+        df[col] = df[col].apply(
+            lambda x: f"<span style='color:red;font-weight:bold'>{x:.1f}</span>" if pd.notnull(x) and x < 80 else f"{x:.1f}" if pd.notnull(x) else ""
+        )
+
+    # 管理項目紅字（<25）
+    manage_cols = [col for col in df.columns if "管理" in col and "分數" in col]
+    for col in manage_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col] = df[col].apply(
+            lambda x: f"<span style='color:red;font-weight:bold'>{x:.0f}</span>" if pd.notnull(x) and x < 25 else f"{x:.0f}" if pd.notnull(x) else ""
+        )
+
+    # 數字格式欄位
     for col in ["個績目標", "個績貢獻", "品牌 客單價", "個人 客單價"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
+
+    # 百分比欄位
     for col in ["個績達成%", "客單 相對績效", "品牌 結帳會員率", "個人 結帳會員率", "會員 相對績效"]:
         if col in df.columns:
-            df[col] = df[col].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
+            df[col] = df[col].apply(lambda x: f"{x}%" if pd.notnull(x) else "")
+
+    # 標題紅字
+    df.columns = [f"<span style='color:red'>{c}</span>" if c in ["需訪談", "重點關注"] else c for c in df.columns]
+
     return df
 
 # -------------------- 主程式 --------------------
-def main():
-    st.markdown("<h3>📊 米斯特 門市 工作績效月考核查詢系統</h3>", unsafe_allow_html=True)
+st.title("📊 米斯特｜人效分析表格展示（紅字標示）")
+
+df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month = load_data()
+
+if df_eff is not None:
+    df_show = format_eff(df_eff)
+    st.markdown(f"### 🔹 分析月份：{summary_month}")
+    st.markdown(df_show.to_html(escape=False, index=False), unsafe_allow_html=True)
 
     df_summary, df_eff, df_mgr, df_staff, df_dist, summary_month = load_data()
     if df_summary is None:
