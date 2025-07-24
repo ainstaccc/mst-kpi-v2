@@ -174,10 +174,6 @@ if "user_email" not in st.session_state:
         st.markdown(f"[Hello，米斯特夥伴! 請登入 Google帳號，驗證後開始查詢考核成績 📊 ]({login_url})")
         st.stop()
 
-# ✅ 若已登入過，直接顯示歡迎詞
-user_name = EMAIL_TO_NAME.get(st.session_state.user_email, st.session_state.user_email)
-st.success(f"👋 Hi {user_name}，歡迎使用查詢系統！")
-
 
 
 # -------------------- 資料讀取與處理 --------------------
