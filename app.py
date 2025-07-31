@@ -156,7 +156,7 @@ def get_user_info(access_token):
     return response.json()
 
 # -------------------- 登入流程處理 --------------------
-query_params = st.experimental_get_query_params()
+query_params = st.query_params
 code = query_params.get("code", [None])[0]
 
 if "user_email" not in st.session_state:
