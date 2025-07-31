@@ -1,3 +1,5 @@
+st.write("✅ 程式版本 2025-08-01 06:00")
+
 import streamlit as st
 import requests
 import json
