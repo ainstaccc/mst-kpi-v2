@@ -6,3 +6,5 @@ XlsxWriter
 matplotlib
 numpy
 google-auth
+gspread
+oauth2client
