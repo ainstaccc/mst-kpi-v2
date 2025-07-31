@@ -1,15 +1,15 @@
-# 1. 用Python官方映像檔
-FROM python:3.11
+# 1. 使用官方 Python 3.10
+FROM python:3.10-slim
 
-# 2. 設定工作目錄
+# 2. 建立工作目錄
 WORKDIR /app
 
-# 3. 複製程式和需求檔案
-COPY requirements.txt requirements.txt
+# 3. 複製需求與程式碼
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. 複製專案全部檔案
 COPY . .
 
-# 5. 告訴Cloud Run要跑Streamlit
-CMD ["streamlit", "run", "app.py", "--server.port", "8080", "--server.address", "0.0.0.0"]
+# 4. 使用 Streamlit 執行
+EXPOSE 8080
+CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
