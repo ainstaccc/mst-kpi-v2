@@ -116,9 +116,16 @@ EMAIL_TO_NAME = {
 st.set_page_config(page_title="米斯特績效考核查詢", page_icon="📊")
 
 # -------------------- Google 登入驗證 --------------------
-GOOGLE_CLIENT_ID = st.secrets["google_oauth"]["client_id"]
-GOOGLE_CLIENT_SECRET = st.secrets["google_oauth"]["client_secret"]
-REDIRECT_URI = st.secrets["google_oauth"]["redirect_uri"]
+# 讀取 Cloud Run 環境變數
+client_id = os.getenv("GOOGLE_CLIENT_ID")
+client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+redirect_uri = os.getenv("REDIRECT_URI")
+
+# 讀取允許名單
+allowed_users = st.secrets["google_oauth"]["allowed_users"]
+
+# 這裡開始寫你的 OAuth 登入邏輯
+# 可以用 client_id / client_secret / redirect_uri 做驗證
 ALLOWED_USERS = [email.lower() for email in st.secrets["google_oauth"]["allowed_users"]]
 
 def get_login_url():
